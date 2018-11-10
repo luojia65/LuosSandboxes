@@ -3,5 +3,7 @@ name = "luos_memory_sandbox"
 version = "0.0.0"
 authors = ["luojia65 <me@luojia.cc>"]
 edition = "2018"
+description = "A customizable memory sandbox, able to detect memory problems when writing data structures"
+license = "WTFPL"
 
 [dependencies]

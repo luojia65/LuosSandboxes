@@ -1,6 +1,7 @@
 #![feature(allocator_api, alloc_layout_extra)]
 #![feature(ptr_offset_from)]
 #![feature(const_fn, const_let)]
+#![feature(int_to_from_bytes)]
 
 use std::alloc::{Alloc, GlobalAlloc, Layout, AllocErr};    
 use std::ptr::NonNull;
@@ -14,8 +15,12 @@ const MAX_INDEX: u16 = u16::max_value();
 
 impl LuosMemory {
     pub fn new() -> Self {
+        Self::new_filled_with(0)
+    }
+
+    pub fn new_filled_with(byte: u8) -> Self {
         Self {
-            buf: vec![0u8; MAX_INDEX as usize],
+            buf: vec![byte; MAX_INDEX as usize],
         }
     }
 }
@@ -28,14 +33,19 @@ pub struct LuosAlloc {
 
 impl LuosAlloc {
     pub fn new(memory: LuosMemory) -> Self {
-        let mut used = Vec::with_capacity(MAX_INDEX as usize);
+        let mut used = vec![0u16; MAX_INDEX as usize];
         for i in 0..MAX_INDEX {
-            used.push(i);
+            used[i as usize] = i;
         }
         Self { 
             memory,
             used
         }     
+    }
+
+    pub fn inner(&self) -> &[u8] {
+        let i = (MAX_INDEX - self.used[MAX_INDEX as usize - 1]) as usize;
+        &self.memory.buf[1..i]
     }
 
     fn get_unused_begin(&self, size: usize) -> Option<usize> {
@@ -118,7 +128,6 @@ unsafe impl Alloc for LuosAlloc {
     }
 
     unsafe fn dealloc(&mut self, ptr: NonNull<u8>, layout: Layout) {
-        println!("Dealloc layout: {:?}", layout);
         let size = layout.size();
         let buf_ptr = self.memory.buf.as_mut_ptr();
         let start = ptr.as_ptr().offset_from(buf_ptr) as usize;
@@ -260,5 +269,31 @@ mod test_alloc {
         assert_eq!(Some(1), a.get_unused_begin(32768));
         assert_eq!(Some(1), a.get_unused_begin((MAX_INDEX - 1) as usize));
         assert_eq!(None, a.get_unused_begin(MAX_INDEX as usize));
+    }
+}
+
+#[cfg(test)]
+mod test_logic {
+    use super::{LuosAlloc, LuosMemory};
+    use std::alloc::{Alloc, Layout};
+    use std::mem;
+
+    #[test]
+    fn my_alloc_inner() {
+        let mut a = LuosAlloc::new(LuosMemory::new());
+        unsafe {
+            let l = Layout::array::<u8>(16).unwrap();
+            let mut ptr = a.alloc(l).unwrap().cast::<u128>();
+            *ptr.as_mut() = 0x1f2f3f4f5f6f7f8f9fafbfcfdfefff;
+            assert_eq!(a.inner(), mem::transmute::<u128, [u8; 16]>(0x1f2f3f4f5f6f7f8f9fafbfcfdfefff));
+            a.dealloc(ptr.cast(), l);
+        }
+        unsafe {
+            let l = Layout::array::<u8>(10).unwrap();
+            let mut ptr = a.alloc(l).unwrap().cast::<[u8; 10]>();
+            *ptr.as_mut() = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+            assert_eq!(a.inner(), &[10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
+            a.dealloc(ptr.cast(), l);
+        }
     }
 }

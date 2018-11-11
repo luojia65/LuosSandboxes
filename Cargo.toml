@@ -7,3 +7,4 @@ description = "A customizable memory sandbox, able to detect memory problems whe
 license = "WTFPL"
 
 [dependencies]
+lazy_static = "1"

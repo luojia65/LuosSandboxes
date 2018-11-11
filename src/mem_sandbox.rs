@@ -1,6 +1,11 @@
 use std::alloc::{Alloc, GlobalAlloc, Layout, AllocErr};    
 use std::ptr::NonNull;
 
+/// A simple 16-KiB linear buffer which is used by all allocators in this 
+/// crate. 
+/// 
+/// Allocator users may create this buffer using `new` or in some particular 
+/// purposes `new_filled_with`.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct LuosMemory {
     buf: Vec<u8>,
@@ -9,10 +14,12 @@ pub struct LuosMemory {
 const MAX_INDEX: u16 = u16::max_value();
 
 impl LuosMemory {
+    /// Create a new buffer with all bytes zeroed. 
     pub fn new() -> Self {
         Self::new_filled_with(0)
     }
 
+    /// Create a new buffer with all bytes set to `byte`. 
     pub fn new_filled_with(byte: u8) -> Self {
         Self {
             buf: vec![byte; MAX_INDEX as usize],
@@ -20,6 +27,10 @@ impl LuosMemory {
     }
 }
 
+/// A plain allocator managing an underlying `LuosMemory` buffer.
+/// 
+/// Note that we may use the function `inner` to see through what is inside
+/// the piece of memory we allocated by this struct.
 #[derive(Debug, Clone)]
 pub struct LuosAlloc {
     memory: LuosMemory,
@@ -27,6 +38,7 @@ pub struct LuosAlloc {
 }
 
 impl LuosAlloc {
+    /// Create a `LuosAlloc` with an underlying `LuosMemory`.
     pub fn new(memory: LuosMemory) -> Self {
         let mut used = vec![0u16; MAX_INDEX as usize];
         for i in 0..MAX_INDEX {
@@ -38,6 +50,7 @@ impl LuosAlloc {
         }     
     }
 
+    /// Peek the bytes that has been already allocated.
     pub fn inner(&self) -> &[u8] {
         let i = (MAX_INDEX - self.used[MAX_INDEX as usize - 1]) as usize;
         &self.memory.buf[1..i]
@@ -155,17 +168,21 @@ unsafe impl Alloc for LuosAlloc {
     }
 }
 
+/// An allocator that always allocates a new section of memory when `realloc`ing.
+/// 
+/// Like `LuosAlloc`, we may peek what is allocated by using `inner` function.
 #[derive(Debug, Clone)]
 pub struct LuosMustReplaceAlloc {
     a: LuosAlloc
 }
 
 impl LuosMustReplaceAlloc {
+    /// Create a `LuosMustReplaceAlloc` with an underlying `LuosMemory`.
     pub fn new(memory: LuosMemory) -> Self {
         let a = LuosAlloc::new(memory);
         Self { a }
     }
-    
+    /// Peek the bytes that has been already allocated.
     pub fn inner(&self) -> &[u8] {
         self.a.inner()
     }
@@ -197,11 +214,13 @@ unsafe impl Alloc for LuosMustReplaceAlloc {
     }
 }
 
+/// An allocator that wraps `LuosAlloc` and can be used with `#[global_alloc]`.
 pub struct LuosGlobalAlloc {
     a: *mut LuosAlloc
 }
 
 impl LuosGlobalAlloc {
+    /// Create a `LuosGlobalAlloc` with an underlying `LuosMemory`.
     pub fn new(memory: LuosMemory) -> Self {
         let alloc = LuosAlloc::new(memory);
         let a = Box::into_raw(Box::new(alloc));

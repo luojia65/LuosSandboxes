@@ -1,10 +1,9 @@
 [package]
 name = "luos_memory_sandbox"
-version = "0.0.0"
+version = "0.0.1"
 authors = ["luojia65 <me@luojia.cc>"]
 edition = "2018"
 description = "A customizable memory sandbox, able to detect memory problems when writing data structures"
 license = "WTFPL"
 
 [dependencies]
-lazy_static = "1"

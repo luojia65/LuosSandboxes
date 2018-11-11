@@ -106,8 +106,6 @@ unsafe impl Alloc for LuosAlloc {
         }
     }
 
-    
-    #[inline]
     unsafe fn alloc_zeroed(&mut self, layout: Layout) -> Result<NonNull<u8>, AllocErr> {
         let size = layout.size();
         if let Some(start) = self.get_unused_begin(size) {
@@ -157,6 +155,7 @@ unsafe impl Alloc for LuosAlloc {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct LuosMustReplaceAlloc {
     a: LuosAlloc
 }
@@ -166,6 +165,10 @@ impl LuosMustReplaceAlloc {
         let a = LuosAlloc::new(memory);
         Self { a }
     }
+    
+    pub fn inner(&self) -> &[u8] {
+        self.a.inner()
+    }
 }
 
 unsafe impl Alloc for LuosMustReplaceAlloc {
@@ -173,7 +176,6 @@ unsafe impl Alloc for LuosMustReplaceAlloc {
         self.a.alloc(layout)
     }
     
-    #[inline]
     unsafe fn alloc_zeroed(&mut self, layout: Layout) -> Result<NonNull<u8>, AllocErr> {
         self.a.alloc_zeroed(layout)
     }
@@ -333,23 +335,24 @@ mod test_logic {
 
 #[cfg(test)]
 mod test_must_replace_alloc {
-    use super::*;
+    use super::{LuosAlloc, LuosMustReplaceAlloc, LuosMemory};
+    use std::alloc::{Alloc, Layout};
     use std::mem;
 
     #[test]
     fn must_replace_logic() {
         let mut a = LuosAlloc::new(LuosMemory::new());
         unsafe {
-            let l = Layout::array::<u128>(2).unwrap();
+            let l = Layout::array::<u32>(2).unwrap();
             let ptr1 = a.alloc(l).expect("Alloc ptr1");
-            let ptr2 = a.realloc(ptr1, l, 2 * mem::size_of::<u128>()).expect("Alloc ptr2");
+            let ptr2 = a.realloc(ptr1, l, 2 * mem::size_of::<u32>()).expect("Alloc ptr2");
             assert_eq!(ptr1, ptr2);
         }
         let mut a = LuosMustReplaceAlloc::new(LuosMemory::new());
         unsafe {
-            let l = Layout::array::<u128>(2).unwrap();
+            let l = Layout::array::<u32>(2).unwrap();
             let ptr1 = a.alloc(l).expect("Alloc ptr1");
-            let ptr2 = a.realloc(ptr1, l, 2 * mem::size_of::<u128>()).expect("Alloc ptr2");
+            let ptr2 = a.realloc(ptr1, l, 2 * mem::size_of::<u32>()).expect("Alloc ptr2");
             assert_ne!(ptr1, ptr2);
         }
     }

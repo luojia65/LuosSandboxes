@@ -115,12 +115,12 @@ impl LuosAlloc {
     /// Count and return used bytes of current algorithm `F`.
     pub fn detect_used_bytes<F>(program: F) -> usize
     where F: Fn(Self) -> Self {
-        let m1 = LuosMemory::new_filled_with(0xCC);
-        let m2 = LuosMemory::new_filled_with(0xDD);
-        let m1 = program(LuosAlloc::new(m1));
-        let m2 = program(LuosAlloc::new(m2));
+        let a1 = LuosAlloc::new(LuosMemory::new_filled_with(0xCC));
+        let a2 = LuosAlloc::new(LuosMemory::new_filled_with(0xDD));
+        let a1 = program(a1);
+        let a2 = program(a2);
         let mut used = 0;
-        for (b1, b2) in m1.memory.buf.iter().zip(m2.memory.buf.iter()) {
+        for (b1, b2) in a1.memory.buf.iter().zip(a2.memory.buf.iter()) {
             if b1 == &0xCC && b2 == &0xDD {
                 continue;
             }

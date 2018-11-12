@@ -1,7 +1,7 @@
 use std::alloc::{Alloc, GlobalAlloc, Layout, AllocErr};    
 use std::ptr::NonNull;
 
-/// A simple 16-KiB linear buffer which is used by all allocators in this 
+/// A simple 64-KiB linear buffer which is used by all allocators in this 
 /// crate. 
 /// 
 /// Allocator users may create this buffer using `new` or in some particular 
@@ -52,8 +52,12 @@ impl LuosAlloc {
 
     /// Peek the bytes that has been already allocated.
     pub fn inner(&self) -> &[u8] {
-        let i = (MAX_INDEX - self.used[MAX_INDEX as usize - 1]) as usize;
-        &self.memory.buf[1..i]
+        &self.memory.buf[1..self.used()]
+    }
+
+    /// Count how much bytes are in use.
+    pub fn used(&self) -> usize {
+        (MAX_INDEX - self.used[MAX_INDEX as usize - 1]) as usize
     }
 
     fn get_unused_begin(&self, size: usize) -> Option<usize> {
@@ -105,6 +109,25 @@ impl LuosAlloc {
             }
         }
     } 
+}
+
+impl LuosAlloc {
+    /// Count and return used bytes of current algorithm `F`.
+    pub fn detect_used_bytes<F>(program: F) -> usize
+    where F: Fn(Self) -> Self {
+        let m1 = LuosMemory::new_filled_with(0xCC);
+        let m2 = LuosMemory::new_filled_with(0xDD);
+        let m1 = program(LuosAlloc::new(m1));
+        let m2 = program(LuosAlloc::new(m2));
+        let mut used = 0;
+        for (b1, b2) in m1.memory.buf.iter().zip(m2.memory.buf.iter()) {
+            if b1 == &0xCC && b2 == &0xDD {
+                continue;
+            }
+            used += 1;
+        }
+        used
+    }
 }
     
 unsafe impl Alloc for LuosAlloc {
@@ -349,6 +372,27 @@ mod test_logic {
             assert_eq!(a.inner(), &[10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
             a.dealloc(ptr.cast(), l);
         }
+    }
+
+    #[test]
+    fn my_alloc_detect_leak() {
+        let used = LuosAlloc::detect_used_bytes(|mut a| unsafe {
+            let l = Layout::array::<u8>(8).unwrap(); // expected to be 8
+            let mut ptr = a.alloc(l).unwrap().cast::<u128>(); // treated to be 16, causing leak!
+            *ptr.as_mut() = 0x2332332333;
+            a.dealloc(ptr.cast(), l);//pointer free
+            a
+        });
+        assert_eq!(used, 16); 
+        assert_ne!(used, 8); // memory leak detected
+        let used = LuosAlloc::detect_used_bytes(|mut a| unsafe {
+            let l = Layout::array::<u8>(8).unwrap(); // expected to be 8
+            let mut ptr = a.alloc(l).unwrap().cast::<u64>(); // treated to be 16, causing leak!
+            *ptr.as_mut() = 0x2332332333;
+            a.dealloc(ptr.cast(), l);//pointer free
+            a
+        });
+        assert_eq!(used, 8); // no memory leak
     }
 }
 

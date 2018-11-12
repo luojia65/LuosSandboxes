@@ -9,7 +9,7 @@
 //! 
 //! `LuosAlloc` is a general allocator which provides function `inner` to see 
 //! through what had been allocated, and by using `new_filled_with` on creation
-//! we can easily distinguish bytes that is normal or being leaked. It adaprs for
+//! we can easily distinguish bytes that is normal or being leaked. It adapts for
 //! the Rust allocation API by implementing the `Alloc` trait.
 //! 
 //! `LuosMustReplaceAlloc` is like `LuosAlloc`, also fitted in the Rust allocation
@@ -21,7 +21,7 @@
 //! trait instead. By using it as a global allocator we can debug our programs 
 //! with the full Rust minimum-runtime allocated into it. 
 //! 
-//! `LuosMemory` is a 16-KiB linear buffer which is used by all allocators provided
+//! `LuosMemory` is a 64-KiB linear buffer which is used by all allocators provided
 //! in this crate. When constructing allocators from this crate, we must create a 
 //! `LuosMemory` buffer using `LuosMemory::new()`, and we may create allocators 
 //! using `let mut a = LuosAlloc::new(LuosMemory::new())`.
@@ -32,7 +32,7 @@
 #![feature(const_fn, const_let)]
 #![feature(int_to_from_bytes)]
 
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 
 mod mem_sandbox;
 mod net_sandbox;

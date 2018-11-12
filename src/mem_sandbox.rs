@@ -387,7 +387,7 @@ mod test_logic {
         assert_ne!(used, 8); // memory leak detected
         let used = LuosAlloc::detect_used_bytes(|mut a| unsafe {
             let l = Layout::array::<u8>(8).unwrap(); // expected to be 8
-            let mut ptr = a.alloc(l).unwrap().cast::<u64>(); // treated to be 16, causing leak!
+            let mut ptr = a.alloc(l).unwrap().cast::<u64>(); // treated to be 8, does not leak.
             *ptr.as_mut() = 0x2332332333;
             a.dealloc(ptr.cast(), l);//pointer free
             a
